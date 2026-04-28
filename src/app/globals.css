@@ -45,3 +45,12 @@ button,
   perspective: 1400px;
   will-change: transform, opacity, filter;
 }
+
+.mobile-slider {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-slider::-webkit-scrollbar {
+  display: none;
+}

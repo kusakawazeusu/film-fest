@@ -3,7 +3,13 @@
 import { Noto_Sans_TC, Oswald } from "next/font/google";
 import Image from "next/image";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
-import { useEffect, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type UIEvent,
+} from "react";
 
 type PosterMovie = {
   id: number;
@@ -145,7 +151,7 @@ function PosterCard({
               height={1170}
               priority={index === 0}
               sizes="(max-width: 640px) 70vw, (max-width: 1024px) 30vw, 18vw"
-              className="h-auto w-full object-cover"
+              className="w-full h-auto object-cover"
             />
           </motion.div>
         </div>
@@ -170,6 +176,140 @@ function PosterCard({
         </span>
       </motion.div>
     </motion.div>
+  );
+}
+
+function MobilePosterSlider({
+  entranceDelay,
+  onIndexChange,
+  posters,
+  revealedIds,
+  isInteractive,
+}: {
+  entranceDelay: number;
+  onIndexChange: (index: number) => void;
+  posters: PosterMovie[];
+  revealedIds: number[];
+  isInteractive: boolean;
+}) {
+  const sliderRef = useRef<HTMLDivElement | null>(null);
+
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    const firstCard =
+      container.querySelector<HTMLElement>("[data-mobile-card]");
+
+    if (!firstCard) {
+      return;
+    }
+
+    const gap = 16;
+    const pitch = firstCard.offsetWidth + gap;
+    const index = Math.round(container.scrollLeft / pitch);
+
+    onIndexChange(Math.max(0, Math.min(index, posters.length - 1)));
+  };
+
+  return (
+    <div className="md:hidden top-1/2 z-20 absolute inset-x-0 -translate-y-1/2">
+      <div
+        ref={sliderRef}
+        className="flex gap-4 px-[11vw] pt-4 pb-8 overflow-x-auto snap-mandatory snap-x mobile-slider"
+        onScroll={handleScroll}
+      >
+        {posters.map((poster, index) => {
+          const isRevealed = revealedIds.includes(poster.id);
+          const revealPhase = isRevealed ? "clear" : "blurred";
+          const showMobileTitle = isRevealed;
+
+          return (
+            <motion.div
+              key={poster.id}
+              data-mobile-card
+              className="w-[78vw] snap-center shrink-0"
+              initial={{ opacity: 0, scale: 0.92, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{
+                duration: revealPhase === "clear" ? 1.1 : 1.45,
+                delay: entranceDelay + index * 0.08,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <a
+                href={poster.movieUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={!isInteractive}
+                tabIndex={isInteractive ? 0 : -1}
+                className={`block ${
+                  isInteractive
+                    ? "cursor-pointer"
+                    : "pointer-events-none cursor-default"
+                }`}
+                onClick={(event) => {
+                  if (!isInteractive) {
+                    event.preventDefault();
+                    return;
+                  }
+
+                  event.stopPropagation();
+                }}
+              >
+                <div
+                  className={`overflow-hidden rounded-[1rem] border bg-black/35 shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-sm transition-colors duration-300 ${
+                    isInteractive
+                      ? "border-white/20 active:border-amber-200/55"
+                      : "border-white/20"
+                  }`}
+                >
+                  <motion.div
+                    initial={{ filter: "blur(22px)" }}
+                    animate={{
+                      filter:
+                        revealPhase === "clear" ? "blur(0px)" : "blur(18px)",
+                    }}
+                    transition={{
+                      duration: revealPhase === "clear" ? 1.25 : 1.8,
+                      delay: entranceDelay + index * 0.08,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  >
+                    <Image
+                      src={poster.posterUrl}
+                      alt={poster.title}
+                      width={780}
+                      height={1170}
+                      priority={index === 0}
+                      sizes="78vw"
+                      className="w-full h-auto object-cover"
+                    />
+                  </motion.div>
+                </div>
+              </a>
+              <motion.div
+                className="mt-4 px-2 text-stone-100 text-center"
+                initial={false}
+                animate={{
+                  opacity: showMobileTitle ? 1 : 0,
+                  y: showMobileTitle ? 0 : 18,
+                }}
+                transition={{
+                  duration: 0.6,
+                  delay: showMobileTitle ? 1.45 : 0,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <span
+                  className={`${posterTitleFont.className} block text-balance break-words text-[1.2rem] leading-[1.02] tracking-[0.02em] drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]`}
+                >
+                  {poster.title}
+                </span>
+              </motion.div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -211,7 +351,7 @@ function FestivalHeading({
         transition={{ duration: 1.05, ease: [0.22, 1, 0.36, 1] }}
       >
         <h1
-          className={`${festivalTitleFont.className} mx-auto max-w-5xl text-balance text-center text-[clamp(3.2rem,11vw,8.5rem)] leading-[0.92] tracking-[0.06em] text-stone-50 drop-shadow-[0_16px_40px_rgba(0,0,0,0.5)] underline underline-offset-30`}
+          className={`${festivalTitleFont.className} mx-auto max-w-5xl text-balance text-center text-[clamp(3.2rem,11vw,8.5rem)] leading-loose tracking-[0.06em] text-stone-50 drop-shadow-[0_16px_40px_rgba(0,0,0,0.5)] underline underline-offset-30`}
         >
           {`影展：${festivalTitle}`}
         </h1>
@@ -361,6 +501,9 @@ export default function PosterReveal({
   posters: PosterMovie[];
 }) {
   const [hasStarted, setHasStarted] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [mobileIndex, setMobileIndex] = useState(0);
+  const [mobileRevealedIds, setMobileRevealedIds] = useState<number[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -376,7 +519,11 @@ export default function PosterReveal({
   });
   const layouts = getPosterLayouts(posters.length);
   const showFestivalTitle = !hasStarted;
-  const postersFullyRevealed = posters.length > 0 && revealedCount >= posters.length;
+  const postersFullyRevealed =
+    posters.length > 0 &&
+    (isMobileView
+      ? mobileRevealedIds.length >= posters.length
+      : revealedCount >= posters.length);
   const showTitles = postersFullyRevealed;
 
   useEffect(() => {
@@ -395,9 +542,43 @@ export default function PosterReveal({
     };
   }, [posters]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => {
+      setIsMobileView(mediaQuery.matches);
+    };
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncViewport);
+    };
+  }, []);
+
   const handleReveal = () => {
     if (!hasStarted) {
       setHasStarted(true);
+      if (isMobileView) {
+        setMobileIndex(0);
+        setRevealedCount(0);
+      }
+      return;
+    }
+
+    if (isMobileView) {
+      const currentPoster = posters[mobileIndex];
+
+      if (!currentPoster) {
+        return;
+      }
+
+      setMobileRevealedIds((currentIds) =>
+        currentIds.includes(currentPoster.id)
+          ? currentIds
+          : [...currentIds, currentPoster.id],
+      );
+
       return;
     }
 
@@ -482,31 +663,43 @@ export default function PosterReveal({
         visible={showFestivalTitle}
       />
 
-      {hasStarted &&
-        posters.map((poster, index) => {
-        const layout = layouts[index];
+      {hasStarted ? (
+        <>
+          <div className="hidden md:block">
+            {posters.map((poster, index) => {
+              const layout = layouts[index];
 
-        if (!layout) {
-          return null;
-        }
+              if (!layout) {
+                return null;
+              }
 
-        const revealPhase = revealedCount > index ? "clear" : "blurred";
+              const revealPhase = revealedCount > index ? "clear" : "blurred";
 
-        return (
-          <PosterCard
-            key={poster.id}
+              return (
+                <PosterCard
+                  key={poster.id}
+                  entranceDelay={revealedCount === 0 ? 0.68 : 0}
+                  index={index}
+                  layout={layout}
+                  mouseX={springMouseX}
+                  mouseY={springMouseY}
+                  poster={poster}
+                  revealPhase={revealPhase}
+                  isInteractive={postersFullyRevealed}
+                  showTitle={showTitles}
+                />
+              );
+            })}
+          </div>
+          <MobilePosterSlider
             entranceDelay={revealedCount === 0 ? 0.68 : 0}
-            index={index}
-            layout={layout}
-            mouseX={springMouseX}
-            mouseY={springMouseY}
-            poster={poster}
-            revealPhase={revealPhase}
+            onIndexChange={setMobileIndex}
+            posters={posters}
+            revealedIds={mobileRevealedIds}
             isInteractive={postersFullyRevealed}
-            showTitle={showTitles}
           />
-        );
-      })}
+        </>
+      ) : null}
     </motion.main>
   );
 }
