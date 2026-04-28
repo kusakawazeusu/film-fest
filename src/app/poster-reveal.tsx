@@ -15,6 +15,7 @@ type PosterMovie = {
   id: number;
   movieUrl: string;
   posterUrl: string;
+  subtitle?: string;
   title: string;
 };
 
@@ -174,6 +175,11 @@ function PosterCard({
         >
           {poster.title}
         </span>
+        {poster.subtitle ? (
+          <span className="block mx-auto mt-2 max-w-[min(14rem,22vw)] whitespace-pre-line break-words text-center text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase sm:max-w-[min(16rem,20vw)] sm:text-[0.84rem] lg:max-w-[min(18rem,18vw)] lg:text-[0.9rem]">
+            {poster.subtitle}
+          </span>
+        ) : null}
       </motion.div>
     </motion.div>
   );
@@ -304,6 +310,11 @@ function MobilePosterSlider({
                 >
                   {poster.title}
                 </span>
+                {poster.subtitle ? (
+                  <span className="block mx-auto mt-2 max-w-[15.5rem] whitespace-pre-line break-words text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase">
+                    {poster.subtitle}
+                  </span>
+                ) : null}
               </motion.div>
             </motion.div>
           );
@@ -393,14 +404,14 @@ function getPosterLayouts(count: number): PosterLayout[] {
   if (count === 3) {
     return withDelays([
       {
-        left: "50%",
-        top: "50%",
-        width: "min(34vw, 300px)",
-      },
-      {
         left: "24%",
         top: "50%",
         width: "min(21vw, 260px)",
+      },
+      {
+        left: "50%",
+        top: "50%",
+        width: "min(34vw, 300px)",
       },
       {
         left: "76%",
@@ -438,9 +449,9 @@ function getPosterLayouts(count: number): PosterLayout[] {
   if (count === 5) {
     return withDelays([
       {
-        left: "50%",
+        left: `calc(50% - ((${FIVE_POSTER_LARGE} / 2) + ${FIVE_POSTER_MEDIUM} + (${FIVE_POSTER_MEDIUM} / 2) + (${FIVE_POSTER_GAP} * 2)))`,
         top: "50%",
-        width: FIVE_POSTER_LARGE,
+        width: FIVE_POSTER_MEDIUM,
       },
       {
         left: `calc(50% - ((${FIVE_POSTER_LARGE} / 2) + ${FIVE_POSTER_GAP} + (${FIVE_POSTER_MEDIUM} / 2)))`,
@@ -448,12 +459,12 @@ function getPosterLayouts(count: number): PosterLayout[] {
         width: FIVE_POSTER_MEDIUM,
       },
       {
-        left: `calc(50% + ((${FIVE_POSTER_LARGE} / 2) + ${FIVE_POSTER_GAP} + (${FIVE_POSTER_MEDIUM} / 2)))`,
+        left: "50%",
         top: "50%",
-        width: FIVE_POSTER_MEDIUM,
+        width: FIVE_POSTER_LARGE,
       },
       {
-        left: `calc(50% - ((${FIVE_POSTER_LARGE} / 2) + ${FIVE_POSTER_MEDIUM} + (${FIVE_POSTER_MEDIUM} / 2) + (${FIVE_POSTER_GAP} * 2)))`,
+        left: `calc(50% + ((${FIVE_POSTER_LARGE} / 2) + ${FIVE_POSTER_GAP} + (${FIVE_POSTER_MEDIUM} / 2)))`,
         top: "50%",
         width: FIVE_POSTER_MEDIUM,
       },

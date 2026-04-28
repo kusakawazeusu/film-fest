@@ -11,6 +11,10 @@ type SearchMovie = {
   title: string;
 };
 
+type SelectedMovie = SearchMovie & {
+  subtitle: string;
+};
+
 function formatYear(releaseDate: string) {
   return releaseDate ? releaseDate.slice(0, 4) : "Unknown";
 }
@@ -19,8 +23,10 @@ export default function ShareBuilder() {
   const [festivalTitle, setFestivalTitle] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchMovie[]>([]);
-  const [selectedMovies, setSelectedMovies] = useState<SearchMovie[]>([]);
+  const [selectedMovies, setSelectedMovies] = useState<SelectedMovie[]>([]);
+  const [draggedMovieId, setDraggedMovieId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isShortening, setIsShortening] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -33,6 +39,9 @@ export default function ShareBuilder() {
 
     const params = new URLSearchParams();
     params.set("id", ids.join(","));
+    selectedMovies.forEach((movie) => {
+      params.append("subtitle", movie.subtitle.trim());
+    });
 
     if (festivalTitle.trim()) {
       params.set("title", festivalTitle.trim());
@@ -102,7 +111,41 @@ export default function ShareBuilder() {
         return current.filter((item) => item.id !== movie.id);
       }
 
-      return [...current, movie];
+      return [...current, { ...movie, subtitle: "" }];
+    });
+  }
+
+  function updateSelectedMovieSubtitle(id: number, subtitle: string) {
+    setCopied(false);
+    setSelectedMovies((current) =>
+      current.map((movie) =>
+        movie.id === id
+          ? {
+              ...movie,
+              subtitle,
+            }
+          : movie,
+      ),
+    );
+  }
+
+  function moveSelectedMovie(draggedId: number, targetId: number) {
+    if (draggedId === targetId) {
+      return;
+    }
+
+    setSelectedMovies((current) => {
+      const draggedIndex = current.findIndex((movie) => movie.id === draggedId);
+      const targetIndex = current.findIndex((movie) => movie.id === targetId);
+
+      if (draggedIndex === -1 || targetIndex === -1) {
+        return current;
+      }
+
+      const next = [...current];
+      const [draggedMovie] = next.splice(draggedIndex, 1);
+      next.splice(targetIndex, 0, draggedMovie);
+      return next;
     });
   }
 
@@ -111,14 +154,36 @@ export default function ShareBuilder() {
       return;
     }
 
-    await navigator.clipboard.writeText(shareUrl);
+    setIsShortening(true);
+
+    try {
+      const response = await fetch("/api/reurl/shorten", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: shareUrl }),
+      });
+
+      const data = (await response.json()) as {
+        error?: string;
+        shortUrl?: string;
+      };
+
+      const finalUrl = response.ok && data.shortUrl ? data.shortUrl : shareUrl;
+
+      await navigator.clipboard.writeText(finalUrl);
+    } finally {
+      setIsShortening(false);
+    }
+
     setCopied(true);
   }
 
   return (
     <main className="bg-[linear-gradient(180deg,_#141010_0%,_#0b0a0a_100%)] px-5 sm:px-8 lg:px-12 py-10 min-h-screen text-stone-100">
       <div className="flex flex-col gap-8 mx-auto w-full max-w-6xl">
-        <section className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-sm p-6 sm:p-8 border border-white/10 rounded-[1.1rem]">
+        <section className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-sm p-6 sm:p-8 border border-white/10 rounded-none">
           <h1 className="font-semibold text-white text-3xl sm:text-4xl tracking-[-0.05em]">
             建立電影分享連結
           </h1>
@@ -135,12 +200,12 @@ export default function ShareBuilder() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="例如：Parasite, Perfect Days, Dune"
-              className="flex-1 bg-black/30 px-5 py-4 border border-white/10 focus:border-amber-200/50 rounded-[0.85rem] outline-none min-w-0 text-white placeholder:text-stone-500 text-base"
+              className="flex-1 bg-black/30 px-5 py-4 border border-white/10 focus:border-amber-200/50 rounded-none outline-none min-w-0 text-white placeholder:text-stone-500 text-base"
             />
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-amber-200 hover:bg-amber-100 disabled:bg-stone-400 px-5 py-4 rounded-[0.85rem] font-medium text-stone-950 text-sm transition disabled:cursor-wait"
+              className="bg-amber-200 hover:bg-amber-100 disabled:bg-stone-400 px-5 py-4 rounded-none font-medium text-stone-950 text-sm transition disabled:cursor-wait"
             >
               {isLoading ? "搜尋中..." : "搜尋電影"}
             </button>
@@ -149,8 +214,8 @@ export default function ShareBuilder() {
           {error ? <p className="mt-4 text-rose-300 text-sm">{error}</p> : null}
         </section>
 
-        <section className="gap-8 grid lg:grid-cols-[1.6fr_0.9fr]">
-          <div className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm p-5 sm:p-6 border border-white/10 rounded-[1.1rem]">
+        <section className="flex flex-col gap-8">
+          <div className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm p-5 sm:p-6 border border-white/10 rounded-none">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-semibold text-white text-xl">搜尋結果</h2>
               <p className="text-stone-400 text-sm">{results.length} 部</p>
@@ -207,7 +272,7 @@ export default function ShareBuilder() {
               })}
             </div>
             {results.length === 0 ? (
-              <div className="flex justify-center items-center bg-black/10 px-6 border border-white/10 border-dashed rounded-[1rem] min-h-56 text-stone-500 text-sm text-center leading-7">
+              <div className="flex justify-center items-center bg-black/10 px-6 border border-white/10 border-dashed rounded-none min-h-56 text-stone-500 text-sm text-center leading-7">
                 {query.trim()
                   ? "沒有找到符合的電影，可以換個片名試試。"
                   : "輸入電影名稱後，這裡會顯示 TMDB 搜尋結果。"}
@@ -215,75 +280,121 @@ export default function ShareBuilder() {
             ) : null}
           </div>
 
-          <aside className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm p-5 sm:p-6 border border-white/10 rounded-[1.1rem]">
+          <div className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm p-5 sm:p-6 border border-white/10 rounded-none">
             <h2 className="font-semibold text-white text-xl">已選電影</h2>
             <p className="mt-2 text-stone-400 text-sm leading-6">
-              點選左側卡片即可加入或移除，分享連結會依目前選中的順序產生。
+              點選上方海報即可加入或移除；下方列表可以拖曳排序，首頁海報會依這個順序由左到右顯示。
             </p>
 
-            <div className="flex flex-wrap gap-2 mt-5">
-              {selectedMovies.map((movie) => (
-                <button
-                  key={movie.id}
-                  type="button"
-                  onClick={() => toggleSelection(movie)}
-                  className="bg-amber-50/8 px-3 py-2 border border-amber-200/30 rounded-[0.65rem] text-amber-100 text-sm"
-                >
-                  {movie.title}
-                </button>
-              ))}
+            <div className="mt-5 space-y-3">
               {selectedMovies.length === 0 ? (
                 <p className="text-stone-500 text-sm">尚未選擇電影。</p>
-              ) : null}
-            </div>
+              ) : (
+                selectedMovies.map((movie, index) => (
+                  <div
+                    key={movie.id}
+                    draggable
+                    onDragStart={() => setDraggedMovieId(movie.id)}
+                    onDragEnd={() => setDraggedMovieId(null)}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
 
-            <div className="bg-black/25 mt-8 p-4 border border-white/10 rounded-[0.95rem]">
-              <label className="block mb-2 text-stone-300 text-sm">
-                影展標題
-              </label>
-              <input
-                value={festivalTitle}
-                onChange={(event) => setFestivalTitle(event.target.value)}
-                placeholder="例如：Golden Horse Special Selection"
-                className="bg-black/30 px-4 py-3 border border-white/10 focus:border-amber-200/50 rounded-[0.85rem] outline-none w-full text-white placeholder:text-stone-500 text-sm"
-              />
-              {!festivalTitle.trim() ? (
-                <p className="my-2 text-amber-200 text-xs">
-                  複製或預覽分享連結前，請先輸入影展標題。
-                </p>
-              ) : null}
+                      if (draggedMovieId !== null) {
+                        moveSelectedMovie(draggedMovieId, movie.id);
+                      }
 
-              <p className="text-stone-400 text-sm">分享連結</p>
-              <div className="bg-black/35 mt-3 px-4 py-4 border border-white/8 rounded-[0.85rem] text-stone-200 text-sm break-all leading-6">
-                {shareUrl || "選擇至少一部電影後，這裡會出現分享網址。"}
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  disabled={!shareUrl || !festivalTitle.trim()}
-                  className="bg-white hover:bg-stone-200 disabled:bg-stone-600 px-4 py-3 rounded-[0.85rem] font-medium text-stone-950 disabled:text-stone-300 text-sm transition disabled:cursor-not-allowed"
-                >
-                  複製連結
-                </button>
-                {shareUrl && festivalTitle.trim() ? (
-                  <a
-                    href={sharePath}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:bg-white/8 px-4 py-3 border border-white/15 rounded-[0.85rem] text-white text-sm transition"
+                      setDraggedMovieId(null);
+                    }}
+                    className={`grid gap-4 bg-black/22 p-4 border transition sm:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] ${
+                      draggedMovieId === movie.id
+                        ? "border-amber-200/65"
+                        : "border-white/10"
+                    }`}
                   >
-                    開啟預覽
-                  </a>
-                ) : null}
-              </div>
-              {copied ? (
-                <p className="mt-3 text-emerald-300 text-sm">
-                  已複製到剪貼簿。
-                </p>
-              ) : null}
+                    <div className="min-w-0">
+                      <p className="text-stone-500 text-[11px] uppercase tracking-[0.2em]">
+                        {String(index + 1).padStart(2, "0")}
+                      </p>
+                      <p className="mt-1 font-medium text-white text-sm sm:text-base leading-snug">
+                        {movie.title}
+                      </p>
+                      <p className="mt-1 text-stone-400 text-xs sm:text-sm leading-6">
+                        {formatYear(movie.releaseDate)} · {movie.directorName}
+                      </p>
+                    </div>
+                    <div>
+                      <input
+                        id={`subtitle-${movie.id}`}
+                        value={movie.subtitle}
+                        onChange={(event) =>
+                          updateSelectedMovieSubtitle(
+                            movie.id,
+                            event.target.value,
+                          )
+                        }
+                        placeholder="小標題⋯⋯"
+                        className="bg-black/30 px-4 py-3 border border-white/10 focus:border-amber-200/50 rounded-none outline-none w-full min-w-0 text-white placeholder:text-stone-500 text-sm"
+                      />
+                    </div>
+                    <div className="flex sm:justify-end items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelection(movie)}
+                        aria-label={`移除 ${movie.title}`}
+                        className="flex justify-center items-center hover:bg-white/8 border border-white/12 w-11 h-11 text-stone-200 transition"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M18 6 6 18" />
+                          <path d="M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          </aside>
+          </div>
+
+          <div className="bg-white/6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm p-5 sm:p-6 border border-white/10 rounded-none">
+            <label className="block mb-2 text-stone-300 text-sm">影展標題</label>
+            <input
+              value={festivalTitle}
+              onChange={(event) => setFestivalTitle(event.target.value)}
+              placeholder="例如：Golden Horse Special Selection"
+              className="bg-black/30 px-4 py-3 border border-white/10 focus:border-amber-200/50 rounded-none outline-none w-full text-white placeholder:text-stone-500 text-sm"
+            />
+            {!festivalTitle.trim() ? (
+              <p className="my-2 text-amber-200 text-xs">
+                複製或預覽分享連結前，請先輸入影展標題。
+              </p>
+            ) : null}
+
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={!shareUrl || !festivalTitle.trim() || isShortening}
+                className="bg-white hover:bg-stone-200 disabled:bg-stone-600 px-4 py-3 rounded-none font-medium text-stone-950 disabled:text-stone-300 text-sm transition disabled:cursor-not-allowed"
+              >
+                {isShortening ? "縮短中..." : "複製連結"}
+              </button>
+            </div>
+            {copied ? (
+              <p className="mt-3 text-emerald-300 text-sm">已複製到剪貼簿。</p>
+            ) : null}
+          </div>
         </section>
       </div>
     </main>

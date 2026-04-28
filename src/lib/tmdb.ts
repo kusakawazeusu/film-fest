@@ -2,6 +2,7 @@ export type PosterMovie = {
   id: number;
   movieUrl: string;
   posterUrl: string;
+  subtitle?: string;
   title: string;
 };
 
