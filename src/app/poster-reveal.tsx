@@ -45,6 +45,14 @@ function withDelays(layouts: Omit<PosterLayout, "delay">[]): PosterLayout[] {
   }));
 }
 
+function getRevealOrder(count: number) {
+  if (count === 5) {
+    return [2, 1, 3, 0, 4];
+  }
+
+  return Array.from({ length: count }, (_, index) => index);
+}
+
 function PosterCard({
   entranceDelay,
   index,
@@ -176,7 +184,7 @@ function PosterCard({
           {poster.title}
         </span>
         {poster.subtitle ? (
-          <span className="block mx-auto mt-2 max-w-[min(14rem,22vw)] whitespace-pre-line break-words text-center text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase sm:max-w-[min(16rem,20vw)] sm:text-[0.84rem] lg:max-w-[min(18rem,18vw)] lg:text-[0.9rem]">
+          <span className="block mx-auto mt-2 max-w-[min(11.5rem,17vw)] whitespace-pre-line break-words text-center text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase sm:max-w-[min(12.5rem,16vw)] sm:text-[0.84rem] lg:max-w-[min(13.5rem,15vw)] lg:text-[0.9rem]">
             {poster.subtitle}
           </span>
         ) : null}
@@ -311,7 +319,7 @@ function MobilePosterSlider({
                   {poster.title}
                 </span>
                 {poster.subtitle ? (
-                  <span className="block mx-auto mt-2 max-w-[15.5rem] whitespace-pre-line break-words text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase">
+                  <span className="block mx-auto mt-2 max-w-[12.5rem] whitespace-pre-line break-words text-[0.78rem] leading-[1.7] tracking-[0.14em] text-stone-300 uppercase">
                     {poster.subtitle}
                   </span>
                 ) : null}
@@ -529,6 +537,7 @@ export default function PosterReveal({
     mass: 0.6,
   });
   const layouts = getPosterLayouts(posters.length);
+  const revealOrder = getRevealOrder(posters.length);
   const showFestivalTitle = !hasStarted;
   const postersFullyRevealed =
     posters.length > 0 &&
@@ -536,6 +545,7 @@ export default function PosterReveal({
       ? mobileRevealedIds.length >= posters.length
       : revealedCount >= posters.length);
   const showTitles = postersFullyRevealed;
+  const revealedDesktopIndices = new Set(revealOrder.slice(0, revealedCount));
 
   useEffect(() => {
     const preloadedImages = posters.map((poster) => {
@@ -684,7 +694,9 @@ export default function PosterReveal({
                 return null;
               }
 
-              const revealPhase = revealedCount > index ? "clear" : "blurred";
+              const revealPhase = revealedDesktopIndices.has(index)
+                ? "clear"
+                : "blurred";
 
               return (
                 <PosterCard
