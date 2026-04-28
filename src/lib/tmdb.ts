@@ -1,5 +1,6 @@
 export type PosterMovie = {
   id: number;
+  movieUrl: string;
   posterUrl: string;
   title: string;
 };
@@ -31,6 +32,7 @@ type TmdbSearchResponse = {
 };
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
+const TMDB_MOVIE_BASE = "https://www.themoviedb.org/movie";
 const TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w780";
 
 function getAccessToken() {
@@ -88,6 +90,7 @@ export async function fetchMoviePoster(id: number) {
 
     return {
       id: movie.id,
+      movieUrl: `${TMDB_MOVIE_BASE}/${movie.id}`,
       title: movie.title,
       posterUrl: `${TMDB_POSTER_BASE}${movie.poster_path}`,
     } satisfies PosterMovie;

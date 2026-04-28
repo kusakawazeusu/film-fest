@@ -7,6 +7,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 
 type PosterMovie = {
   id: number;
+  movieUrl: string;
   posterUrl: string;
   title: string;
 };
@@ -46,6 +47,7 @@ function PosterCard({
   poster,
   revealPhase,
   showTitle,
+  isInteractive,
 }: {
   entranceDelay: number;
   index: number;
@@ -55,6 +57,7 @@ function PosterCard({
   poster: PosterMovie;
   revealPhase: "blurred" | "clear";
   showTitle: boolean;
+  isInteractive: boolean;
 }) {
   const depth = 1 - index * 0.08;
   const hoverRotateY = useTransform(mouseX, (value) => value * 4 * depth);
@@ -97,29 +100,56 @@ function PosterCard({
         ease: [0.22, 1, 0.36, 1],
       }}
     >
-      <div className="bg-black/35 shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-sm border border-white/20 rounded-[1rem] overflow-hidden">
-        <motion.div
-          initial={{ filter: "blur(22px)" }}
-          animate={{
-            filter: revealPhase === "clear" ? "blur(0px)" : "blur(18px)",
-          }}
-          transition={{
-            duration: revealPhase === "clear" ? 1.25 : 1.8,
-            delay: layout.delay + entranceDelay,
-            ease: [0.22, 1, 0.36, 1],
-          }}
+      <a
+        href={poster.movieUrl}
+        target="_blank"
+        rel="noreferrer"
+        aria-disabled={!isInteractive}
+        tabIndex={isInteractive ? 0 : -1}
+        className={`block ${
+          isInteractive
+            ? "pointer-events-auto cursor-pointer"
+            : "pointer-events-none cursor-default"
+        }`}
+        onClick={(event) => {
+          if (!isInteractive) {
+            event.preventDefault();
+            return;
+          }
+
+          event.stopPropagation();
+        }}
+      >
+        <div
+          className={`overflow-hidden rounded-[1rem] border bg-black/35 shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-sm transition-colors duration-300 ${
+            isInteractive
+              ? "border-white/20 hover:border-amber-200/55"
+              : "border-white/20"
+          }`}
         >
-          <Image
-            src={poster.posterUrl}
-            alt={poster.title}
-            width={780}
-            height={1170}
-            priority={index === 0}
-            sizes="(max-width: 640px) 70vw, (max-width: 1024px) 30vw, 18vw"
-            className="w-full h-auto object-cover"
-          />
-        </motion.div>
-      </div>
+          <motion.div
+            initial={{ filter: "blur(22px)" }}
+            animate={{
+              filter: revealPhase === "clear" ? "blur(0px)" : "blur(18px)",
+            }}
+            transition={{
+              duration: revealPhase === "clear" ? 1.25 : 1.8,
+              delay: layout.delay + entranceDelay,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <Image
+              src={poster.posterUrl}
+              alt={poster.title}
+              width={780}
+              height={1170}
+              priority={index === 0}
+              sizes="(max-width: 640px) 70vw, (max-width: 1024px) 30vw, 18vw"
+              className="h-auto w-full object-cover"
+            />
+          </motion.div>
+        </div>
+      </a>
       <motion.div
         className="top-[calc(100%+0.95rem)] left-1/2 absolute px-2 w-max max-w-[min(24rem,92vw)] text-stone-100 text-center -translate-x-1/2"
         initial={false}
@@ -129,7 +159,7 @@ function PosterCard({
         }}
         transition={{
           duration: 0.72,
-          delay: showTitle ? 0.18 + index * 0.05 : 0,
+          delay: showTitle ? 1 + index * 0.16 : 0,
           ease: [0.22, 1, 0.36, 1],
         }}
       >
@@ -330,7 +360,8 @@ export default function PosterReveal({
   festivalTitle: string;
   posters: PosterMovie[];
 }) {
-  const [revealStep, setRevealStep] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(0);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const springMouseX = useSpring(mouseX, {
@@ -344,10 +375,9 @@ export default function PosterReveal({
     mass: 0.6,
   });
   const layouts = getPosterLayouts(posters.length);
-  const visiblePosters = posters.filter(
-    (_, index) => revealStep >= index * 2 + 1,
-  );
-  const showTitles = posters.length > 0 && revealStep >= posters.length * 2;
+  const showFestivalTitle = !hasStarted;
+  const postersFullyRevealed = posters.length > 0 && revealedCount >= posters.length;
+  const showTitles = postersFullyRevealed;
 
   useEffect(() => {
     const preloadedImages = posters.map((poster) => {
@@ -366,7 +396,12 @@ export default function PosterReveal({
   }, [posters]);
 
   const handleReveal = () => {
-    setRevealStep((count) => Math.min(count + 1, posters.length * 2));
+    if (!hasStarted) {
+      setHasStarted(true);
+      return;
+    }
+
+    setRevealedCount((count) => Math.min(count + 1, posters.length));
   };
 
   const handleMouseMove = (event: MouseEvent<HTMLElement>) => {
@@ -444,28 +479,30 @@ export default function PosterReveal({
         festivalTitle={festivalTitle}
         mouseX={springMouseX}
         mouseY={springMouseY}
-        visible={revealStep === 0}
+        visible={showFestivalTitle}
       />
 
-      {visiblePosters.map((poster, index) => {
+      {hasStarted &&
+        posters.map((poster, index) => {
         const layout = layouts[index];
 
         if (!layout) {
           return null;
         }
 
-        const revealPhase = revealStep >= index * 2 + 2 ? "clear" : "blurred";
+        const revealPhase = revealedCount > index ? "clear" : "blurred";
 
         return (
           <PosterCard
             key={poster.id}
-            entranceDelay={index === 0 && revealStep === 1 ? 1 : 0}
+            entranceDelay={revealedCount === 0 ? 0.68 : 0}
             index={index}
             layout={layout}
             mouseX={springMouseX}
             mouseY={springMouseY}
             poster={poster}
             revealPhase={revealPhase}
+            isInteractive={postersFullyRevealed}
             showTitle={showTitles}
           />
         );
