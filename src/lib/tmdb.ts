@@ -6,8 +6,8 @@ export type PosterMovie = {
 };
 
 export type SearchMovie = {
+  directorName: string;
   id: number;
-  overview: string;
   posterUrl: string | null;
   releaseDate: string;
   title: string;
@@ -21,7 +21,6 @@ type TmdbMovieDetails = {
 
 type TmdbSearchMovie = {
   id: number;
-  overview: string;
   poster_path: string | null;
   release_date: string;
   title: string;
@@ -29,6 +28,13 @@ type TmdbSearchMovie = {
 
 type TmdbSearchResponse = {
   results: TmdbSearchMovie[];
+};
+
+type TmdbCreditsResponse = {
+  crew: Array<{
+    job: string;
+    name: string;
+  }>;
 };
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
@@ -109,6 +115,15 @@ export async function fetchMoviePosters(ids: number[]) {
   return results.filter((movie): movie is PosterMovie => movie !== null);
 }
 
+async function fetchMovieDirectorName(id: number) {
+  try {
+    const credits = await tmdbFetch<TmdbCreditsResponse>(`/movie/${id}/credits`);
+    return credits.crew.find((member) => member.job === "Director")?.name ?? "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
 export async function searchMovies(query: string) {
   const trimmedQuery = query.trim();
 
@@ -125,9 +140,14 @@ export async function searchMovies(query: string) {
 
   const response = await tmdbFetch<TmdbSearchResponse>("/search/movie", searchParams);
 
-  return response.results.slice(0, 18).map((movie) => ({
+  const movies = response.results.slice(0, 18);
+  const directorNames = await Promise.all(
+    movies.map((movie) => fetchMovieDirectorName(movie.id)),
+  );
+
+  return movies.map((movie, index) => ({
+    directorName: directorNames[index] ?? "Unknown",
     id: movie.id,
-    overview: movie.overview,
     posterUrl: movie.poster_path ? `${TMDB_POSTER_BASE}${movie.poster_path}` : null,
     releaseDate: movie.release_date,
     title: movie.title,
